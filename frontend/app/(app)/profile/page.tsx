@@ -66,6 +66,12 @@ export default function ProfilePage() {
   const avgStudy = avgOf(recent7.map(l => l.studyHours));
   const avgSleep = avgOf(recent7.map(l => l.sleepHours));
 
+  const logMap     = Object.fromEntries(logs.map(l => [l.date, l]));
+  const last7Dates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().slice(0, 10);
+  });
+
   const goalProgress = [
     { label: "Study Goal",  current: avgStudy,                 target: profile.dailyStudyGoal, unit: "h",  color: "#7C6CFF" },
     { label: "Sleep Target",current: avgSleep,                 target: profile.sleepTarget,    unit: "h",  color: "#4DA3FF" },
@@ -142,8 +148,19 @@ export default function ProfilePage() {
         <div className="space-y-4">
           <p className="section-title">Goal Progress (7-day avg)</p>
 
+          {/* 7-day activity strip */}
+          <div className="glass-sm px-4 py-3 flex items-center gap-2">
+            {last7Dates.map((d, i) => (
+              <div key={d} className="flex flex-col items-center gap-1 flex-1">
+                <div className={`w-full h-2 rounded-sm transition-all ${logMap[d] ? "bg-accent-purple" : "bg-white/[0.08]"}`} />
+                <span className="text-[8px] text-text-muted">{d.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+
           {goalProgress.map((g, i) => {
-            const pct = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
+            const pct    = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
+            const onTrack = pct >= 80;
             const circumference = 2 * Math.PI * 24;
             return (
               <motion.div key={g.label} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
@@ -166,7 +183,11 @@ export default function ProfilePage() {
                     {g.target}{g.unit}
                   </p>
                 </div>
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${
+                  onTrack ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                }`}>
+                  {onTrack ? "On track" : "Needs work"}
+                </span>
               </motion.div>
             );
           })}

@@ -7,7 +7,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import { TrendingUp, Moon, BookOpen, Zap } from "lucide-react";
-import { getLogs, getProfile, calcStreak, avgOf, last14Days } from "@/lib/storage";
+import { getLogs, getProfile, calcStreak, avgOf, last14Days, isDemoMode } from "@/lib/storage";
 import type { StudyLog, UserProfile } from "@/lib/types";
 
 type Tab = "trend" | "sleep" | "subjects" | "weekly";
@@ -28,13 +28,18 @@ export default function AnalyticsPage() {
   const [tab,     setTab]     = useState<Tab>("trend");
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { setLogs(getLogs()); setProfile(getProfile()); setMounted(true); }, []);
+  const [demo,    setDemo]    = useState(false);
+
+  useEffect(() => { setLogs(getLogs()); setProfile(getProfile()); setDemo(isDemoMode()); setMounted(true); }, []);
   if (!mounted) return null;
 
   const streak    = calcStreak(logs);
   const totalHrs  = logs.reduce((s, l) => s + l.studyHours, 0);
   const avgStudy  = avgOf(logs.slice(0, 30).map(l => l.studyHours));
   const avgProd   = avgOf(logs.slice(0, 30).map(l => l.productivityScore));
+  const avgProdR  = avgOf(logs.slice(0, 7).map(l => l.productivityScore));
+  const avgProdP  = logs.length >= 14 ? avgOf(logs.slice(7, 14).map(l => l.productivityScore)) : null;
+  const weekDelta = avgProdP !== null ? Math.round((avgProdR - avgProdP) * 10) / 10 : null;
 
   const logMap  = Object.fromEntries(logs.map(l => [l.date, l]));
   const days14  = last14Days();
@@ -73,16 +78,22 @@ export default function AnalyticsPage() {
   ];
 
   const STATS = [
-    { label: "Study Streak",   value: streak > 0 ? `${streak}d` : "0d",                   icon: TrendingUp, color: "#7C6CFF" },
-    { label: "Total Hours",    value: `${Math.round(totalHrs)}h`,                          icon: BookOpen,   color: "#4DA3FF" },
-    { label: "Avg Daily",      value: avgStudy > 0 ? `${avgStudy.toFixed(1)}h` : "—",     icon: Zap,        color: "#10B981" },
-    { label: "Avg Productivity",value: avgProd > 0 ? `${avgProd.toFixed(1)}/10` : "—",    icon: Moon,       color: "#F59E0B" },
+    { label: "Study Streak",    value: streak > 0 ? `${streak}d` : "0d",                              icon: TrendingUp, color: "#7C6CFF",
+      sub: weekDelta !== null ? `${weekDelta >= 0 ? "+" : ""}${weekDelta} prod vs last week` : "" },
+    { label: "Total Hours",     value: `${Math.round(totalHrs)}h`,                                    icon: BookOpen,   color: "#4DA3FF", sub: "" },
+    { label: "Avg Daily Study", value: avgStudy > 0 ? `${avgStudy.toFixed(1)}h` : "—",               icon: Zap,        color: "#10B981", sub: "" },
+    { label: "Avg Productivity",value: avgProd  > 0 ? `${avgProd.toFixed(1)}/10` : "—",             icon: Moon,       color: "#F59E0B", sub: "" },
   ];
 
   const empty = logs.length === 0;
 
   return (
     <div className="page-container">
+      {demo && (
+        <div className="mb-5 px-4 py-2.5 rounded-xl bg-accent-purple/[0.07] border border-accent-purple/20 text-xs text-text-secondary">
+          <span className="font-semibold text-accent-purple">Demo data</span> — these charts show sample analytics. Log your own sessions to see real trends.
+        </div>
+      )}
       <div className="mb-6">
         <p className="section-title">Analytics</p>
         <h1 className="text-2xl font-bold text-text-primary">Performance Analytics</h1>
@@ -99,6 +110,7 @@ export default function AnalyticsPage() {
               <s.icon size={13} style={{ color: s.color }} />
             </div>
             <p className="text-xl font-bold text-text-primary">{s.value}</p>
+            {s.sub && <p className="text-[10px] mt-0.5" style={{ color: s.color }}>{s.sub}</p>}
           </motion.div>
         ))}
       </div>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, BookOpen, Moon, Activity, Smartphone, Target, School, Users, AlarmClock, Star, Sparkles, TrendingUp } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ScoreMeter } from "@/components/prediction/ScoreMeter";
 import { predictPerformance } from "@/lib/api";
-import { getRecommendations, getScoreCategory } from "@/lib/utils";
+import { getRecommendations, getScoreCategory, localEstimate, getInfluencingFactors } from "@/lib/utils";
 import { savePrediction } from "@/lib/storage";
 import { useAuth } from "@/context/AuthContext";
 import type { PredictionFormData, PredictionResult, PredictionRecord } from "@/lib/types";
@@ -81,6 +81,9 @@ export default function PredictionPage() {
   const [result,  setResult]  = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
+
+  const liveScore = useMemo(() => localEstimate(form), [form]);
+  const factors   = useMemo(() => getInfluencingFactors(form), [form]);
 
   function set<K extends keyof PredictionFormData>(key: K, value: PredictionFormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -190,49 +193,83 @@ export default function PredictionPage() {
 
         {/* ─── RIGHT: Result ─── */}
         <div className="space-y-4 lg:sticky lg:top-6">
-          <AnimatePresence mode="wait">
-            {result ? (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, scale: 0.97, y: 12 }}
-                animate={{ opacity: 1, scale: 1,    y: 0  }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35 }}
-                className="space-y-4"
-              >
-                      {/* Score meter */}
-                <div className="glass p-6 flex flex-col items-center">
-                  <ScoreMeter score={result.score} size={170} />
-                  {/* Confidence */}
-                  <div className="w-full mt-5 pt-4 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="text-text-muted">Prediction Confidence</span>
-                      <span className="font-semibold text-text-primary">
-                        {result.r2 >= 0.9 ? "High" : result.r2 >= 0.8 ? "Good" : "Moderate"}
+          {/* ── Live estimate (always visible) ── */}
+          <motion.div
+            key="live"
+            className="glass p-6 flex flex-col items-center"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          >
+            <p className="section-title mb-3 self-start">Live Estimate</p>
+            <ScoreMeter score={result ? result.score : liveScore} size={170} />
+            {result && (
+              <div className="w-full mt-4 pt-3 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-text-muted">Prediction Confidence</span>
+                  <span className="font-semibold text-text-primary">
+                    {result.r2 >= 0.9 ? "High" : result.r2 >= 0.8 ? "Good" : "Moderate"}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <motion.div className="h-full rounded-full bg-gradient-to-r from-accent-purple to-accent-blue"
+                    initial={{ width: 0 }} animate={{ width: `${Math.round(result.r2 * 100)}%` }}
+                    transition={{ duration: 0.9, ease: "easeOut" }} />
+                </div>
+              </div>
+            )}
+            {!result && (
+              <p className="text-[10px] text-text-muted mt-3 text-center">Updates live as you adjust sliders</p>
+            )}
+          </motion.div>
+
+          {/* ── Influencing factors ── */}
+          <div className="glass p-4">
+            <p className="section-title mb-3">Top Influencing Factors</p>
+            <div className="space-y-2.5">
+              {factors.map((f) => {
+                const isPos  = f.direction === "pos";
+                const color  = isPos ? "#10B981" : "#EF4444";
+                const barPct = Math.min(100, Math.abs(f.impact) * 2.5);
+                return (
+                  <div key={f.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-secondary">{f.label}</span>
+                      <span className="text-xs font-semibold tabular-nums" style={{ color }}>
+                        {isPos ? "+" : ""}{f.impact.toFixed(0)}pts
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
                       <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-accent-purple to-accent-blue"
+                        className="h-full rounded-full"
+                        style={{ background: color, opacity: 0.75 }}
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.round(result.r2 * 100)}%` }}
-                        transition={{ duration: 0.9, ease: "easeOut", delay: 0.4 }}
+                        animate={{ width: `${barPct}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
                       />
                     </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+          </div>
 
-                {/* AI Insight paragraph */}
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                  className="glass p-4 border-accent-purple/20 bg-accent-purple/[0.04]">
+          {/* ── AI Insight + recs (after real prediction) ── */}
+          <AnimatePresence>
+            {result && (
+              <motion.div
+                key="result-extras"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-4"
+              >
+                <div className="glass p-4 border-accent-purple/20 bg-accent-purple/[0.04]">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles size={13} className="text-accent-purple" />
                     <p className="text-xs font-semibold text-accent-purple">AI Insight</p>
                   </div>
                   <p className="text-xs text-text-secondary leading-relaxed">{genAIInsight(result.score, form)}</p>
-                </motion.div>
+                </div>
 
-                {/* Recommendations */}
                 {recs.length > 0 && (
                   <div className="surface p-4">
                     <p className="section-title mb-3">Recommendations</p>
@@ -240,13 +277,10 @@ export default function PredictionPage() {
                       {recs.map((rec, i) => {
                         const Icon = ICON_MAP[rec.icon] ?? Star;
                         return (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: 8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.6 + i * 0.08 }}
-                            className="flex gap-3 p-3 rounded-lg bg-bg-surface hover:bg-bg-elevated transition-colors"
-                          >
+                          <motion.div key={i}
+                            initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.07 }}
+                            className="flex gap-3 p-3 rounded-lg bg-bg-surface hover:bg-bg-elevated transition-colors">
                             <div className="w-7 h-7 rounded-lg bg-accent-purple/10 flex items-center justify-center shrink-0">
                               <Icon size={13} className="text-accent-purple" />
                             </div>
@@ -261,23 +295,9 @@ export default function PredictionPage() {
                   </div>
                 )}
 
-                {/* Download */}
                 <button onClick={downloadReport} className="btn-ghost w-full border border-white/[0.08] text-text-secondary">
                   <Download size={14} /> Download Report
                 </button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="placeholder"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="surface flex flex-col items-center justify-center py-16 text-center"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-accent-purple/10 border border-accent-purple/20 flex items-center justify-center mb-4">
-                  <Target size={20} className="text-accent-purple" />
-                </div>
-                <p className="text-sm font-medium text-text-primary">Ready to predict</p>
-                <p className="text-xs text-text-muted mt-1">Fill in your profile and click predict.</p>
               </motion.div>
             )}
           </AnimatePresence>

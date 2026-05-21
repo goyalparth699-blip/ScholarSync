@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { PredictionFormData, Recommendation } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,4 +62,53 @@ export function getRecommendations(inputs: PredictionFormData, score = 0): Recom
   return recs.slice(0, 4);
 }
 
-import type { PredictionFormData, Recommendation } from "./types";
+export function localEstimate(f: PredictionFormData): number {
+  const prev   = Math.max(0, Math.min(1, (f.previous_scores - 30) / 70));
+  const study  = Math.max(0, Math.min(1, f.study_hours / 12));
+  const att    = Math.max(0, Math.min(1, (f.attendance - 50) / 50));
+  const sleep  = f.sleep_hours >= 7 ? 1 : f.sleep_hours >= 5 ? f.sleep_hours / 8 : 0.4;
+  const screen = Math.max(0, 1 - f.screen_time / 12);
+  const tutor  = Math.min(1, f.tutoring_sessions / 5);
+  const motiv  = f.motivation_level  === "High" ? 1 : f.motivation_level  === "Medium" ? 0.6 : 0.25;
+  const fam    = f.family_support    === "High" ? 1 : f.family_support    === "Medium" ? 0.65 : 0.3;
+  const teach  = f.teacher_quality   === "High" ? 1 : f.teacher_quality   === "Medium" ? 0.65 : 0.3;
+  const phys   = Math.min(1, f.physical_activity / 10);
+  const parEd  = f.parental_education === "Postgraduate" ? 1 : f.parental_education === "College" ? 0.7 : 0.45;
+  const inet   = f.internet_access === "Yes" ? 1 : 0.7;
+  const extra  = f.extracurricular_activities === "Yes" ? 1 : 0.8;
+  const raw =
+    prev  * 0.28 + study * 0.22 + att   * 0.18 +
+    sleep * 0.09 + screen* 0.07 + tutor * 0.04 +
+    motiv * 0.04 + fam   * 0.025+ teach * 0.025+
+    phys  * 0.015+ parEd * 0.01 + inet  * 0.005+ extra * 0.005;
+  return Math.min(100, Math.max(15, Math.round(raw * 100)));
+}
+
+const NEUTRAL: PredictionFormData = {
+  study_hours: 4, attendance: 75, sleep_hours: 6, previous_scores: 60,
+  physical_activity: 3, screen_time: 4, tutoring_sessions: 0,
+  internet_access: "Yes", motivation_level: "Medium", family_support: "Medium",
+  extracurricular_activities: "No", teacher_quality: "Medium", parental_education: "College",
+};
+
+export function getInfluencingFactors(f: PredictionFormData): Array<{
+  label: string; impact: number; direction: "pos" | "neg";
+}> {
+  const base = localEstimate(NEUTRAL);
+  return [
+    { label: "Previous Score", score: localEstimate({ ...NEUTRAL, previous_scores:          f.previous_scores          }) },
+    { label: "Study Hours",    score: localEstimate({ ...NEUTRAL, study_hours:               f.study_hours               }) },
+    { label: "Attendance",     score: localEstimate({ ...NEUTRAL, attendance:                f.attendance                }) },
+    { label: "Sleep",          score: localEstimate({ ...NEUTRAL, sleep_hours:               f.sleep_hours               }) },
+    { label: "Screen Time",    score: localEstimate({ ...NEUTRAL, screen_time:               f.screen_time               }) },
+    { label: "Tutoring",       score: localEstimate({ ...NEUTRAL, tutoring_sessions:         f.tutoring_sessions         }) },
+    { label: "Motivation",     score: localEstimate({ ...NEUTRAL, motivation_level:          f.motivation_level          }) },
+  ]
+    .map(({ label, score }) => ({
+      label,
+      impact:    score - base,
+      direction: (score >= base ? "pos" : "neg") as "pos" | "neg",
+    }))
+    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+    .slice(0, 5);
+}

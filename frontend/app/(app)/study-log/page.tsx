@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, BookOpen, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, BookOpen, Check, ChevronDown, ChevronUp, Zap } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { getLogs, upsertLog, deleteLog, calcProductivity } from "@/lib/storage";
 import type { StudyLog, Mood } from "@/lib/types";
@@ -43,6 +43,7 @@ export default function StudyLogPage() {
   const [form,      setForm]      = useState(DEFAULT());
   const [subInput,  setSubInput]  = useState("");
   const [saved,     setSaved]     = useState(false);
+  const [lastQuality, setLastQuality] = useState<{ score: number; label: string; color: string } | null>(null);
   const [mounted,   setMounted]   = useState(false);
   const [expanded,  setExpanded]  = useState<string | null>(null);
 
@@ -62,7 +63,13 @@ export default function StudyLogPage() {
     upsertLog(log);
     setLogs(getLogs());
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    const ql =
+      prod >= 9 ? { score: prod, label: "Outstanding session", color: "#10B981" } :
+      prod >= 7 ? { score: prod, label: "High quality session", color: "#7C6CFF" } :
+      prod >= 5 ? { score: prod, label: "Good session",         color: "#4DA3FF" } :
+                  { score: prod, label: "Could be better",      color: "#F59E0B" };
+    setLastQuality(ql);
+    setTimeout(() => { setSaved(false); }, 2500);
   }
 
   function handleDelete(id: string) {
@@ -162,6 +169,31 @@ export default function StudyLogPage() {
           <button onClick={handleSave} className="btn-primary w-full">
             {saved ? <><Check size={15} /> Saved!</> : <><BookOpen size={15} /> Save Session</>}
           </button>
+
+          {/* Session quality card */}
+          <AnimatePresence>
+            {lastQuality && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="glass p-4 flex items-center gap-3"
+                style={{ borderColor: `${lastQuality.color}30` }}
+              >
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: `${lastQuality.color}18` }}>
+                  <Zap size={15} style={{ color: lastQuality.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-text-primary">{lastQuality.label}</p>
+                  <p className="text-[10px] text-text-muted mt-0.5">Productivity score: {lastQuality.score}/10</p>
+                </div>
+                <span className="text-xl font-bold tabular-nums" style={{ color: lastQuality.color }}>
+                  {lastQuality.score}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── History ── */}
@@ -190,7 +222,14 @@ export default function StudyLogPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-text-primary">{log.date}</p>
-                      <p className="text-xs text-text-muted">{log.studyHours}h study · {log.sleepHours}h sleep · P:{log.productivityScore}/10</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-text-muted">{log.studyHours}h · {log.sleepHours}h sleep</p>
+                        <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-accent-purple to-accent-blue"
+                            style={{ width: `${log.productivityScore * 10}%` }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-text-muted tabular-nums">{log.productivityScore}/10</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {expanded === log.id ? <ChevronUp size={13} className="text-text-muted" /> : <ChevronDown size={13} className="text-text-muted" />}

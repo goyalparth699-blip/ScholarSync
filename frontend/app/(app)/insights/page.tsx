@@ -1,10 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ElementType } from "react";
 import { motion } from "framer-motion";
-import { BrainCircuit, TrendingUp, TrendingDown, Minus, Sparkles, RefreshCw, BookOpen } from "lucide-react";
+import { BrainCircuit, TrendingUp, TrendingDown, Minus, Sparkles, RefreshCw, BookOpen, Trophy, Flame, Moon, Target, Zap } from "lucide-react";
 import { getLogs, getProfile, generateInsights, calcStreak, avgOf } from "@/lib/storage";
 import type { StudyLog, UserProfile, AIInsight } from "@/lib/types";
+
+type Achievement = { id: string; label: string; desc: string; icon: ElementType; color: string; earned: boolean };
+
+function buildAchievements(logs: StudyLog[], streak: number, avgSleep: number, avgFocus: number): Achievement[] {
+  const total = logs.length;
+  return [
+    { id: "streak7",  label: "7-Day Streak",     desc: "Logged 7 days in a row",       icon: Flame,    color: "#F59E0B", earned: streak >= 7    },
+    { id: "streak14", label: "Fortnight Focus",   desc: "14-day consecutive streak",    icon: Flame,    color: "#EF4444", earned: streak >= 14   },
+    { id: "sleep",    label: "Sleep Master",      desc: "Avg sleep ≥ 7.5h this week",   icon: Moon,     color: "#4DA3FF", earned: avgSleep >= 7.5 },
+    { id: "focus",    label: "Focus Warrior",     desc: "Avg focus ≥ 7.5/10 this week", icon: Zap,      color: "#7C6CFF", earned: avgFocus >= 7.5 },
+    { id: "logs10",   label: "Consistent Learner",desc: "Logged 10+ sessions",           icon: BookOpen, color: "#10B981", earned: total >= 10    },
+    { id: "logs21",   label: "Consistency King",  desc: "Logged 21+ sessions",           icon: Trophy,   color: "#F59E0B", earned: total >= 21    },
+  ];
+}
 const TYPE_META: Record<AIInsight["type"], { label: string; color: string; bg: string }> = {
   achievement: { label: "Achievement",   color: "#10B981", bg: "bg-success/[0.06] border-success/20"       },
   warning:     { label: "Watch Out",     color: "#F59E0B", bg: "bg-warning/[0.06] border-warning/20"       },
@@ -39,7 +53,14 @@ export default function InsightsPage() {
   const avgStudy   = avgOf(recent7.map(l => l.studyHours));
   const avgSleep   = avgOf(recent7.map(l => l.sleepHours));
   const avgProd    = avgOf(recent7.map(l => l.productivityScore));
+  const avgFocus   = avgOf(recent7.map(l => l.focusLevel));
   const streak     = calcStreak(logs);
+  const achievements = buildAchievements(logs, streak, avgSleep, avgFocus);
+  const earnedCount  = achievements.filter(a => a.earned).length;
+
+  const forecastScore = logs.length >= 7
+    ? Math.min(100, Math.round(50 + avgStudy * 3.5 + avgSleep * 1.5 + streak * 0.4))
+    : null;
 
   const SUMMARY = [
     { label: "7-day Avg Study", value: avgStudy > 0 ? `${avgStudy.toFixed(1)}h` : "—",       color: "#7C6CFF" },
@@ -71,6 +92,54 @@ export default function InsightsPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Achievements */}
+      {logs.length > 0 && (
+        <div className="mb-7">
+          <div className="flex items-center justify-between mb-3">
+            <p className="section-title">Achievements</p>
+            <span className="text-xs text-text-muted">{earnedCount}/{achievements.length} earned</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {achievements.map((a, i) => (
+              <motion.div key={a.id}
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className={`glass-sm p-3 flex flex-col items-center text-center transition-all ${
+                  a.earned ? "" : "opacity-35 grayscale"
+                }`}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2"
+                  style={{ background: a.earned ? `${a.color}20` : "rgba(255,255,255,0.04)",
+                           border: a.earned ? `1px solid ${a.color}30` : "1px solid rgba(255,255,255,0.06)" }}>
+                  <a.icon size={15} style={{ color: a.earned ? a.color : "#6B7280" }} />
+                </div>
+                <p className="text-[10px] font-semibold text-text-primary leading-tight">{a.label}</p>
+                <p className="text-[9px] text-text-muted mt-0.5 leading-tight">{a.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Forecast card */}
+      {forecastScore !== null && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="glass p-5 mb-6 flex items-start gap-4 border-accent-purple/20 bg-accent-purple/[0.04]">
+          <div className="w-10 h-10 rounded-xl bg-accent-purple/15 flex items-center justify-center shrink-0">
+            <Target size={18} className="text-accent-purple" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple mb-1">AI Forecast</p>
+            <p className="text-sm font-bold text-text-primary mb-1">
+              Projected score: <span className="text-gradient">{forecastScore - 3}–{forecastScore + 3}</span>
+            </p>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Based on your current {avgStudy.toFixed(1)}h/day study average, {streak}-day streak, and sleep of {avgSleep.toFixed(1)}h —
+              maintaining this consistency for 30 more days is expected to push your exam score into this range.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Insight cards */}
       {logs.length === 0 ? (

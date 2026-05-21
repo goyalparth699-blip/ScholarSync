@@ -1,7 +1,25 @@
 import type { StudyLog, UserProfile, PredictionRecord, AIInsight } from "./types";
+import { DEMO_LOGS, DEMO_PREDICTION } from "./demo";
 
-const K = { LOGS: "spp_logs", PROFILE: "spp_profile", HISTORY: "spp_history" };
+const K = { LOGS: "spp_logs", PROFILE: "spp_profile", HISTORY: "spp_history", DEMO: "spp_demo" };
 const safe = <T>(fn: () => T, fb: T): T => { try { return fn(); } catch { return fb; } };
+
+export const isDemoMode  = (): boolean => safe(() => localStorage.getItem(K.DEMO) === "1", false);
+
+export const seedDemoData = (): void => {
+  if (typeof window === "undefined") return;
+  if (getLogs().length > 0) return;
+  localStorage.setItem(K.LOGS,    JSON.stringify(DEMO_LOGS));
+  localStorage.setItem(K.HISTORY, JSON.stringify([DEMO_PREDICTION]));
+  localStorage.setItem(K.DEMO,    "1");
+};
+
+export const clearDemoData = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(K.LOGS);
+  localStorage.removeItem(K.HISTORY);
+  localStorage.removeItem(K.DEMO);
+};
 
 // ── Study Logs ────────────────────────────────────────────────────────────────
 export const getLogs = (): StudyLog[] =>
