@@ -1,0 +1,157 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #0b1020;
+    color: #f5f7fa;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-bg-surface border border-white/[0.07] rounded-xl;
+  }
+  .surface-elevated {
+    @apply bg-bg-elevated border border-white/[0.07] rounded-xl;
+  }
+
+  /* Glass morphism cards */
+  .glass {
+    background: rgba(17, 24, 45, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    @apply border border-white/[0.08] rounded-2xl;
+  }
+  .glass-sm {
+    background: rgba(22, 31, 54, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    @apply border border-white/[0.07] rounded-xl;
+  }
+
+  .input-base {
+    @apply h-9 w-full rounded-lg border border-white/[0.08] bg-bg-elevated px-3 py-2 text-sm text-text-primary placeholder:text-text-muted
+      transition-colors duration-150
+      focus:outline-none focus:border-accent-purple/40 focus:ring-1 focus:ring-accent-purple/20
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+      bg-gradient-to-r from-accent-purple to-accent-blue
+      px-4 py-2.5 text-sm font-semibold text-white
+      transition-all duration-200
+      hover:opacity-90 hover:shadow-accent hover:-translate-y-px
+      active:scale-[0.98]
+      disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+      px-4 py-2.5 text-sm font-medium text-text-secondary
+      transition-all duration-150
+      hover:bg-white/[0.05] hover:text-text-primary
+      active:scale-[0.98];
+  }
+
+  .page-container {
+    @apply p-6 lg:p-8 max-w-7xl mx-auto;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-text-muted;
+  }
+
+  /* Stat ring widget */
+  .stat-ring {
+    @apply relative flex items-center justify-center;
+  }
+
+  /* Insight card type colours */
+  .insight-achievement { @apply border-success/20 bg-success/[0.06]; }
+  .insight-warning      { @apply border-warning/20 bg-warning/[0.06]; }
+  .insight-tip          { @apply border-accent-blue/20 bg-accent-blue/[0.06]; }
+  .insight-forecast     { @apply border-accent-purple/20 bg-accent-purple/[0.06]; }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #7c6cff, #4da3ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-border {
+    background:
+      linear-gradient(#11182D, #11182D) padding-box,
+      linear-gradient(135deg, rgba(124,108,255,0.35), rgba(77,163,255,0.35)) border-box;
+    border: 1px solid transparent;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.04) 25%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0.04) 75%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  .animate-float   { animation: float   4s ease-in-out infinite; }
+  .animate-float-2 { animation: float   4s ease-in-out infinite 1.5s; }
+  .glow-purple     { box-shadow: 0 0 40px rgba(124,108,255,0.15); }
+}
+
+/* Extra keyframes */
+@keyframes shimmer {
+  0%   { background-position: -800px 0; }
+  100% { background-position:  800px 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes ping-slow {
+  0%   { transform: scale(1);    opacity: 0.4; }
+  80%  { transform: scale(1.8);  opacity: 0;   }
+  100% { transform: scale(1.8);  opacity: 0;   }
+}
+
+.animate-ping-slow { animation: ping-slow 2s ease-in-out infinite; }
