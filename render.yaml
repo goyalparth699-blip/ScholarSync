@@ -1,0 +1,13 @@
+# Render.com deployment config for ScholarSync API
+# https://render.com/docs/render-yaml-reference
+
+services:
+  - type: web
+    name: scholarsync-api
+    runtime: python
+    buildCommand: pip install -r api/requirements.txt
+    startCommand: cd api && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    autoDeploy: true
